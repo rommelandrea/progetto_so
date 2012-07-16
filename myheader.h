@@ -17,5 +17,7 @@ typedef struct{
 	int priorita_default;
 } configurazione;
 
-
+void down(int, int);
+void up(int, int);
+void leggi_conf(configurazione *);
 #endif /* MYHEADER_H_ */
