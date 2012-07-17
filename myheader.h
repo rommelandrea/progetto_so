@@ -20,4 +20,5 @@ typedef struct{
 void down(int, int);
 void up(int, int);
 void leggi_conf(configurazione *);
+void send_socket(char *, int);
 #endif /* MYHEADER_H_ */
