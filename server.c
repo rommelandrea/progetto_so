@@ -94,13 +94,14 @@ void leggi_conf(configurazione *c){
  */
 void send_socket(char * s, int p) {
 	sleep(3);
-	printf("\npronto per inviare\n");
+
 	int sd, n;
 	struct sockaddr_un srvaddr;
 
 	char sock[20];
-	sprintf(sock, "%d.sock", p);
-	printf("\nSOCKET %s\n", sock);
+	sprintf(sock, "/tmp/%d.sock", p);
+	//printf("\nSOCKET %s\n", sock);
+	printf("\npronto per inviare al socket %s\n\n", sock);
 
 	sd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(sd < 0){
@@ -126,7 +127,7 @@ void send_socket(char * s, int p) {
 	sprintf(buf, "mi devi %d perche' hai prenotato questo: %s", costo, cosa);
 
 	//strcpy(buf, "dati inviati");
-	n = write(sd, buf, sizeof(buf));
+	n = write(sd, buf, sizeof(char)*100);
 
 	close(sd);
 	unlink(sock);
@@ -195,6 +196,7 @@ int main(int argc, char **argv) {
 			int priorita = richiesta->priority;
 			int pid_cli = richiesta->clientId;
 			char *bill = "ricevuta";
+			response *risposta = malloc(sizeof(response));
 
 			printf("sono il figlio\n");
 
@@ -206,6 +208,11 @@ int main(int argc, char **argv) {
 			case 0:
 				printf("caso oculistica");
 				costo = conf->visita_oculistica + (priorita * conf->costo_priorita);
+				risposta->clientId = pid_cli;
+				risposta->kindof_service = reparto;
+				risposta->mtype = TOCLI;
+				risposta->price = costo;
+
 				send_socket(bill, pid_cli);
 				break;
 			case 1:
