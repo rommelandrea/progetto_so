@@ -1,8 +1,6 @@
 #include "header_proj.h"
 #include "myheader.h"
 
-#include <fnmatch.h>
-
 /**
  * funzione che decrementa il semaforo
  */
@@ -89,6 +87,7 @@ void leggi_conf(configurazione *c) {
 
 /**
  * creo socket e invio i dati al client
+ * nel caso in cui la connect non vada a buon fine ritento la connessione ogni secondo
  */
 void send_socket(char * s, int p) {
 
@@ -99,9 +98,6 @@ void send_socket(char * s, int p) {
 
 	int sd, n;
 	struct sockaddr_un srvaddr;
-	struct timeval timeout;
-	timeout.tv_sec = 10;
-	timeout.tv_usec = 0;
 
 	char sock[20];
 	sprintf(sock, "/tmp/%d.sock", p);
@@ -122,22 +118,29 @@ void send_socket(char * s, int p) {
 	srvaddr.sun_family = AF_UNIX;
 	strcpy(srvaddr.sun_path, sock);
 
-	if (setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, (char *) &timeout,
-			sizeof(timeout)) < 0) {
-		perror("Unable to set socket");
-		exit(1);
+	/*
+	 * tentativo d'inserimento del timeout sul socket
+	 if (setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, (void *) &timeout,
+	 sizeof(struct timeval)) < 0) {
+	 perror("Unable to set socket");
+	 exit(1);
+	 }
+	 */
+
+	printf("CONNECT....\n");
+
+	n = 10;
+	while (connect(sd, (struct sockaddr *) &srvaddr, sizeof(srvaddr)) < 0
+			&& n > 0) {
+		sleep(1);
+		printf("sleep ... ");
+		n--;
 	}
 
-	n = connect(sd, (struct sockaddr *) &srvaddr, sizeof(srvaddr));
-	if (n < 0) {
+	if (n == 0) {
 		perror("Unable to connect to socket server");
 		exit(1);
 	}
-
-	char buf[100];
-	int costo = 60;
-	char cosa[] = "visita ortopedica";
-	sprintf(buf, "mi devi %d perche' hai prenotato questo: %s", costo, cosa);
 
 	n = write(sd, s, sizeof(char) * 200);
 
@@ -168,6 +171,26 @@ int calcola_turno(int s, int p) {
 		t = 1;
 
 	return t;
+}
+
+void clean(int q1, int q2, int q3, int q4, int s, int m) {
+	/**
+	 * chiudo le code di messaggi
+	 */
+	msgctl(q1, IPC_RMID, 0);
+	msgctl(q2, IPC_RMID, 0);
+	msgctl(q3, IPC_RMID, 0);
+	msgctl(q4, IPC_RMID, 0);
+
+	/**
+	 * disalloco il semaforo
+	 */
+	semctl(s, 0, IPC_RMID);
+
+	/**
+	 * disalloco la memoria condivisa
+	 */
+	shmctl(m, IPC_RMID, 0);
 }
 
 int main(int argc, char **argv) {
@@ -217,6 +240,7 @@ int main(int argc, char **argv) {
 
 	/**
 	 * prelevo un segmento di memoria
+	 * e lo inizializzo a 0
 	 */
 
 	key_t shm_id;
@@ -235,100 +259,126 @@ int main(int argc, char **argv) {
 
 	*shm = 0;
 
-	printf("valore mem condivisa %d\n", *shm);
-
 	shmdt(shm);
 
 	/**
 	 * Ciclo infinito che accetta le richieste,
 	 * genera i figli
 	 */
-//	while (TRUE) {
-	printf("aspetto un msg sulla coda\n");
-	//msgrcv(MSG_Q__main_bus, richiesta, sizeof(request), TOSRV, 0);
-	printf("ricevuto messaggio\n");
+	while (TRUE) {
+		printf("aspetto un msg sulla coda\n");
+		msgrcv(MSG_Q__main_bus, richiesta, sizeof(request), TOSRV, 0);
+		printf("ricevuto messaggio\n");
 
-	son = fork();
-	if (son == 0) {
-		int costo = 0, sequenza = 0;
-		int turno = 0;
-		int reparto = richiesta->kindof_service;
-		int priorita = richiesta->priority;
-		int pid_cli = richiesta->clientId;
-		char bill[200];
-		response *risposta = malloc(sizeof(response));
+		son = fork();
+		if (son == 0) {
+			int costo = 0, sequenza = 0;
+			int turno = 0;
+			int reparto = richiesta->kindof_service;
+			int priorita = richiesta->priority;
+			int pid_cli = richiesta->clientId;
+			char bill[200];
+			response *risposta = malloc(sizeof(response));
 
-		int* shm_ptr;
-		shm_ptr = (int *) shmat(shm_id, 0, 0);
-		if (shm_ptr < 0) {
-			perror("Unable to attach memory");
-			exit(1);
+			int* shm_ptr;
+			shm_ptr = (int *) shmat(shm_id, 0, 0);
+			if (shm_ptr < 0) {
+				perror("Unable to attach memory");
+				exit(1);
+			}
+
+			printf("sono il figlio\n");
+
+			down(SEM_server, 0);
+			*shm_ptr = *shm_ptr + 1;
+			sequenza = *shm_ptr;
+			up(SEM_server, 0);
+
+			switch (reparto) {
+			//caso oculistica
+			case 0:
+				printf("caso oculistica");
+				costo = calcola_prezzo(conf->visita_oculistica, priorita,
+						conf->costo_priorita);
+				turno = calcola_turno(sequenza, priorita);
+				risposta->clientId = pid_cli;
+				risposta->kindof_service = reparto;
+				risposta->mtype = TOCLI;
+				risposta->price = costo;
+				risposta->turn = turno;
+				msgsnd(MSG_Q__main_bus, risposta, sizeof(response), TOCLI);
+
+				sprintf(bill,
+						"RICEVUTA\nper la prenotazione di una vistita ortopedica lei ha speso %d,00 euro\n"
+								"grazie per aver utilizzato i nostri servizi",
+						costo);
+
+				printf("PID %d", pid_cli);
+				send_socket(bill, pid_cli);
+				break;
+		//caso ortopedia
+			case 1:
+				printf("caso ortopedia");
+				costo = calcola_prezzo(conf->visita_ortopedica, priorita,
+						conf->costo_priorita);
+				turno = calcola_turno(sequenza, priorita);
+				risposta->clientId = pid_cli;
+				risposta->kindof_service = reparto;
+				risposta->mtype = TOCLI;
+				risposta->price = costo;
+				risposta->turn = turno;
+				msgsnd(MSG_Q__main_bus, risposta, sizeof(response), TOCLI);
+
+				sprintf(bill,
+						"RICEVUTA\nper la prenotazione di una vistita oculistica lei ha speso %d,00 euro\n"
+								"grazie per aver utilizzato i nostri servizi",
+						costo);
+
+				printf("PID %d", pid_cli);
+				send_socket(bill, pid_cli);
+				break;
+		//caso radiologia
+			case 2:
+				printf("caso radiologia");
+
+				costo = calcola_prezzo(conf->visita_radiologica, priorita,
+						conf->costo_priorita);
+				turno = calcola_turno(sequenza, priorita);
+				risposta->clientId = pid_cli;
+				risposta->kindof_service = reparto;
+				risposta->mtype = TOCLI;
+				risposta->price = costo;
+				risposta->turn = turno;
+				msgsnd(MSG_Q__main_bus, risposta, sizeof(response), TOCLI);
+
+				sprintf(bill,
+						"RICEVUTA\nper la prenotazione di una vistita radiologica lei ha speso %d,00 euro\n"
+								"grazie per aver utilizzato i nostri servizi",
+						costo);
+
+				printf("PID %d", pid_cli);
+				send_socket(bill, pid_cli);
+				break;
+			}
+			printf("TURNO %d\n", turno);
+			free(risposta);
 		}
-
-		printf("sono il figlio\n");
-
-		down(SEM_server, 0);
-		*shm_ptr = *shm_ptr + 1;
-		sequenza = *shm_ptr;
-		up(SEM_server, 0);
-
-		switch (reparto) {
-		case 0:
-			printf("caso oculistica");
-			costo = calcola_prezzo(conf->visita_oculistica, priorita,
-					conf->costo_priorita);
-			turno = calcola_turno(sequenza, priorita);
-			risposta->clientId = pid_cli;
-			risposta->kindof_service = reparto;
-			risposta->mtype = TOCLI;
-			risposta->price = costo;
-			msgsnd(MSG_Q__main_bus, risposta, sizeof(response), TOCLI);
-
-			sprintf(bill,
-					"RICEVUTA\nper la prenotazione di una vistita oculistica lei ha speso %d,00 euro\ngrazie per aver utilizzato i nostri servizi",
-					costo);
-
-			send_socket(bill, pid_cli);
-			break;
-		case 1:
-			printf("caso ortopedia");
-			break;
-		case 2:
-			printf("caso radiologia");
-			break;
-		}
-
-		free(risposta);
 	}
-	printf("pid client: %d reparto: %d\n", richiesta->clientId,
-			richiesta->kindof_service);
-
-//	}
 	wait(0);
-
-	/**
-	 * chiudo le code di messaggi
-	 */
-	msgctl(MSG_Q__main_bus, IPC_RMID, 0);
-	msgctl(MSG_Q__oculistica, IPC_RMID, 0);
-	msgctl(MSG_Q__radiologia, IPC_RMID, 0);
-	msgctl(MSG_Q__ortopedia, IPC_RMID, 0);
-
-	/**
-	 * disalloco il semaforo
-	 */
-	semctl(SEM_server, 0, IPC_RMID);
-
-	/**
-	 * disalloco la memoria condivisa
-	 */
-	shmctl(shm_id, IPC_RMID, 0);
 
 	/**
 	 * libero tutte le memorie
 	 */
 	free(richiesta);
 	free(conf);
+
+	/**
+	 * chiamo la funzione per la pulizia delle risorse ipc
+	 */
+	clean(MSG_Q__main_bus, MSG_Q__oculistica, MSG_Q__radiologia,
+			MSG_Q__ortopedia, SEM_server, shm_id);
+
+	printf("TERMINO!!!!!!!!!!\n\n");
 
 	return 0;
 }
