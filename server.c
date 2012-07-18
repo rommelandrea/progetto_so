@@ -239,12 +239,12 @@ int main(int argc, char **argv) {
 	leggi_conf(conf);
 
 	/**
-	 * prelevo un segmento di memoria
+	 * prelevo un segmento di memoria condivisa
 	 * e lo inizializzo a 0
 	 */
 
 	key_t shm_id;
-	shm_id = shmget(IPC_PRIVATE, sizeof(char) * 10, 0666);
+	shm_id = shmget(IPC_PRIVATE, sizeof(int), 0666);
 	if (shm_id < 0) {
 		perror("Unable to get shared memory");
 		exit(1);
@@ -266,13 +266,14 @@ int main(int argc, char **argv) {
 	 * genera i figli
 	 */
 	while (TRUE) {
-		printf("aspetto un msg sulla coda\n");
+		printf("\tAspetto un msg sulla coda\n");
 		msgrcv(MSG_Q__main_bus, richiesta, sizeof(request), TOSRV, 0);
-		printf("ricevuto messaggio\n");
+		printf("\t\t==> Ricevuto messaggio\n");
 
 		son = fork();
 		if (son == 0) {
-			int costo = 0, sequenza = 0;
+			int costo = 0; 
+			int sequenza = 0;
 			int turno = 0;
 			int reparto = richiesta->kindof_service;
 			int priorita = richiesta->priority;
@@ -287,7 +288,7 @@ int main(int argc, char **argv) {
 				exit(1);
 			}
 
-			printf("sono il figlio\n");
+			printf("\tSono il figlio\n");
 
 			down(SEM_server, 0);
 			*shm_ptr = *shm_ptr + 1;
