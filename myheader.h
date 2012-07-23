@@ -2,7 +2,7 @@
  * myheader.h
  *
  *  Created on: Jul 13, 2012
- *      Author: rommel
+ *      Author: Andrea Romanello, Amir Curic
  */
 
 #ifndef MYHEADER_H_
