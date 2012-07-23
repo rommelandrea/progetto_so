@@ -1,5 +1,14 @@
-#include "header_proj.h"
 #include "myheader.h"
+
+/**
+ * funzione che riceve l'handler e fa la pulizia delle risorse ipc
+ */
+void handler(int sig){
+	printf("ricevuto handler\nadesso faccio pulizia e muoio\n");
+
+	printf("pulizia terminata\n");
+	exit(sig);
+}
 
 /**
  * funzione che decrementa il semaforo
@@ -148,30 +157,6 @@ void send_socket(char * s, int p) {
 	unlink(sock);
 }
 
-/**
- * la funzione calcola il prezzo della prestazione
- * in base al costo base, alla priorità e al costo sulla priorita'
- */
-int calcola_prezzo(int base, int priorita, int costo_p) {
-	int totale;
-	
-	totale = base + (costo_p * priorita);
-	
-	return totale;
-}
-
-/**
- * la funzione calcola il numero del turno in base alla priorita'
- * nel caso il turno venga minore di 1 viene messo = a 1
- */
-int calcola_turno(int s, int p) {
-	int t = 0;
-	t = s - p;
-	if (t < 1)
-		t = 1;
-	
-	return t;
-}
 
 void clean(int q1, int q2, int q3, int q4, int s, int m) {
 	/**
@@ -194,6 +179,11 @@ void clean(int q1, int q2, int q3, int q4, int s, int m) {
 }
 
 int main(int argc, char **argv) {
+	/**
+	 * registro l'handler
+	 */
+	signal(SIGINT, handler);
+
 	/**
 	 * creo le variabili
 	 */
@@ -384,6 +374,8 @@ int main(int argc, char **argv) {
 			}
 			printf("TURNO %d\n", turno);
 			free(risposta);
+			free(prenotazione);
+			exit(0);
 		}
 	}
 	wait(0);
@@ -402,5 +394,5 @@ int main(int argc, char **argv) {
 	
 	printf("TERMINO!!!!!!!!!!\n\n");
 	
-	return 0;
+	return EXIT_SUCCESS;
 }

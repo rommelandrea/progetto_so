@@ -4,6 +4,7 @@
  *  Created on: Jul 13, 2012
  *      Author: Andrea Romanello, Amir Curic
  */
+#include "header_proj.h"
 
 #ifndef MYHEADER_H_
 #define MYHEADER_H_
@@ -21,4 +22,7 @@ void down(int, int);
 void up(int, int);
 void leggi_conf(configurazione *);
 void send_socket(char *, int);
+int calcola_prezzo(int, int, int);
+int calcola_turno(int, int);
+
 #endif /* MYHEADER_H_ */
