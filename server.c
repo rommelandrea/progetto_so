@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
 	/**
 	 * registro l'handler
 	 */
-	signal(SIGINT, handler);
+	signal(SIGQUIT, handler);
 
 	/**
 	 * creo le variabili
