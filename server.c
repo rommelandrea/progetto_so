@@ -6,6 +6,30 @@
 void handler(int sig){
 	printf("ricevuto handler\nadesso faccio pulizia e muoio\n");
 
+	int qs, qrad, qoph, qort, shm, sem;
+
+	qs = msgget(SERVER_KEY, 0);
+	qrad = msgget(RAD_queue_KEY, 0);
+	qort = msgget(ORT_queue_KEY, 0);
+	qoph = msgget(OPH_queue_KEY, 0);
+
+	msgctl(qs, IPC_RMID, 0);
+	msgctl(qrad, IPC_RMID, 0);
+	msgctl(qort, IPC_RMID, 0);
+	msgctl(qoph, IPC_RMID, 0);
+
+	sem = semget(SEM_KEY, 1, IPC_CREAT);
+	if(sem<0){
+		perror("HANDLER: Unable to get semaphore");
+	}
+	semctl(sem, 0, IPC_RMID);
+
+	shm = shmget(SHM_KEY, sizeof(int), IPC_CREAT);
+	if(shm<0){
+		perror("HANDLER: Unabel to get shared memory");
+	}
+	shmctl(shm, IPC_RMID, 0);
+
 	printf("pulizia terminata\n");
 	exit(sig);
 }
@@ -211,7 +235,7 @@ int main(int argc, char **argv) {
 	/**
 	 * creo il semaforo e lo inizializzo a 1
 	 */
-	SEM_server = semget(SEM_KEY, 1, IPC_CREAT);
+	SEM_server = semget(SEM_KEY, 1, IPC_CREAT|0666);
 	if (SEM_server < 0) {
 		perror("Cannot create semaphore");
 		exit(1);
@@ -233,8 +257,8 @@ int main(int argc, char **argv) {
 	 * e lo inizializzo a 0
 	 */
 	
-	key_t shm_id;
-	shm_id = shmget(IPC_PRIVATE, sizeof(int), 0666);
+	int shm_id;
+	shm_id = shmget(SHM_KEY, sizeof(int), IPC_CREAT|0666);
 	if (shm_id < 0) {
 		perror("Unable to get shared memory");
 		exit(1);
