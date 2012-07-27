@@ -4,7 +4,7 @@
  * funzione che riceve l'handler e fa la pulizia delle risorse ipc
  */
 void handler(int sig){
-	printf("ricevuto handler\nadesso faccio pulizia e muoio\n");
+	printf("\n\tRicevuto handler\n\tAdesso faccio pulizia e muoio\n\n");
 
 	int qs, qrad, qoph, qort, shm, sem;
 
@@ -30,7 +30,7 @@ void handler(int sig){
 	}
 	shmctl(shm, IPC_RMID, 0);
 
-	printf("pulizia terminata\n");
+	printf("\tPulizia terminata\n");
 	exit(sig);
 }
 
@@ -160,7 +160,7 @@ void send_socket(char * s, int p) {
 	 }
 	 */
 	
-	printf("CONNECT....\n");
+	printf("\nCONNECT....\n");
 	
 	n = 10;
 	while (connect(sd, (struct sockaddr *) &srvaddr, sizeof(srvaddr)) < 0
@@ -282,7 +282,7 @@ int main(int argc, char **argv) {
 	while (TRUE) {
 		printf("\tAspetto un msg sulla coda\n");
 		msgrcv(MSG_Q__main_bus, richiesta, sizeof(request), TOSRV, 0);
-		printf("\t\t==> Ricevuto messaggio\n");
+		printf("\t==> Ricevuto messaggio\n");
 		
 		son = fork();
 		if (son == 0) {
@@ -335,7 +335,7 @@ int main(int argc, char **argv) {
 							"Grazie per aver utilizzato i nostri servizi.\n",
 							costo);
 					
-					printf("PID %d", pid_cli);
+					printf(" PID %d", pid_cli);
 					send_socket(bill, pid_cli);
 					break;
 					//caso ortopedia
@@ -363,7 +363,7 @@ int main(int argc, char **argv) {
 							"Grazie per aver utilizzato i nostri servizi.\n",
 							costo);
 					
-					printf("PID %d", pid_cli);
+					printf(" PID %d", pid_cli);
 					send_socket(bill, pid_cli);
 					break;
 					//caso radiologia
@@ -392,11 +392,11 @@ int main(int argc, char **argv) {
 							"Grazie per aver utilizzato i nostri servizi.\n",
 							costo);
 					
-					printf("PID %d", pid_cli);
+					printf(" PID %d", pid_cli);
 					send_socket(bill, pid_cli);
 					break;
 			}
-			printf("TURNO %d\n", turno);
+			printf("\tTURNO %d\n", turno);
 			free(risposta);
 			free(prenotazione);
 			exit(0);
@@ -416,7 +416,7 @@ int main(int argc, char **argv) {
 	clean(MSG_Q__main_bus, MSG_Q__oculistica, MSG_Q__radiologia,
 		  MSG_Q__ortopedia, SEM_server, shm_id);
 	
-	printf("TERMINO!!!!!!!!!!\n\n");
+	printf("TERMINO!\n\n");
 	
 	return EXIT_SUCCESS;
 }
