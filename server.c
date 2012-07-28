@@ -4,9 +4,9 @@
  * funzione che riceve l'handler e fa la pulizia delle risorse ipc
  */
 void handler(int sig){
-	printf("\n\tRicevuto handler\n\tAdesso faccio pulizia e muoio\n\n");
-
 	int qs, qrad, qoph, qort, shm, sem;
+
+	printf("\n\tRicevuto handler\n\tAdesso faccio pulizia e muoio\n\n");
 
 	qs = msgget(SERVER_KEY, 0);
 	qrad = msgget(RAD_queue_KEY, 0);
@@ -69,18 +69,14 @@ void leggi_conf(configurazione *c) {
 	int price;
 	
 	while (!feof(fp)) {
-		//fscanf(fp, "%s", line);
-		
 		fgets(line, 256, fp);
 		if (fnmatch("#*", line, 0)) {
-			//printf("%s", line);
 			
 			if (!fnmatch("VISITA_RADIOLOGICA*", line, 0)) {
 				pline = strtok(line, " ");
 				pline = strtok(NULL, " ");
 				price = atoi(pline);
 				c->visita_radiologica = price;
-				//printf("il prezzo e' %d\n", price);
 			}
 			
 			if (!fnmatch("VISITA_ORTOPEDICA*", line, 0)) {
@@ -88,7 +84,6 @@ void leggi_conf(configurazione *c) {
 				pline = strtok(NULL, " ");
 				price = atoi(pline);
 				c->visita_ortopedica = price;
-				//printf("il prezzo e' %d\n", price);
 			}
 			
 			if (!fnmatch("VISITA_OCULISTICA*", line, 0)) {
@@ -96,21 +91,18 @@ void leggi_conf(configurazione *c) {
 				pline = strtok(NULL, " ");
 				price = atoi(pline);
 				c->visita_oculistica = price;
-				//printf("il prezzo e' %d\n", price);
 			}
 			if (!fnmatch("COSTO_PRIORITA*", line, 0)) {
 				pline = strtok(line, " ");
 				pline = strtok(NULL, " ");
 				price = atoi(pline);
 				c->costo_priorita = price;
-				//printf("il prezzo e' %d\n", price);
 			}
 			if (!fnmatch("PRIORITY*", line, 0)) {
 				pline = strtok(line, " ");
 				pline = strtok(NULL, " ");
 				price = atoi(pline);
 				c->priorita_default = price;
-				//printf("il prezzo e' %d\n", price);
 			}
 		}
 	}
@@ -123,16 +115,14 @@ void leggi_conf(configurazione *c) {
  * nel caso in cui la connect non vada a buon fine ritento la connessione ogni secondo
  */
 void send_socket(char * s, int p) {
-	
+	int sd, n;
+	struct sockaddr_un srvaddr;
+	char sock[20];
 	/**
 	 * sleep temporanea per la sincronizzazione dei processi
 	 */
 	sleep(3);
-	
-	int sd, n;
-	struct sockaddr_un srvaddr;
-	
-	char sock[20];
+
 	sprintf(sock, "/tmp/%d.sock", p);
 	
 	printf("\n\tPronto per inviare al socket %s\n\n", sock);
@@ -203,6 +193,14 @@ void clean(int q1, int q2, int q3, int q4, int s, int m) {
 }
 
 int main(int argc, char **argv) {
+	int MSG_Q__main_bus, MSG_Q__oculistica, MSG_Q__radiologia, MSG_Q__ortopedia,
+	SEM_server;
+	request *richiesta;
+	int son;
+	int* shm;
+	int shm_id;
+
+	configurazione *conf;
 	/**
 	 * registro l'handler
 	 */
@@ -211,12 +209,12 @@ int main(int argc, char **argv) {
 	/**
 	 * creo le variabili
 	 */
-	int MSG_Q__main_bus, MSG_Q__oculistica, MSG_Q__radiologia, MSG_Q__ortopedia,
-	SEM_server;
-	request *richiesta = malloc(sizeof(request));
+
+
+	richiesta = malloc(sizeof(request));
 	
-	int son;
 	
+
 	/**
 	 * creo le code di messaggi
 	 * e controllo che la creazione sia andata a buon fine
@@ -248,7 +246,7 @@ int main(int argc, char **argv) {
 	 * i dati di configurazione
 	 * chiamo la funzione che legge il file di conf e riempie la struttura
 	 */
-	configurazione *conf;
+
 	conf = malloc(sizeof(configurazione));
 	leggi_conf(conf);
 	
@@ -257,16 +255,16 @@ int main(int argc, char **argv) {
 	 * e lo inizializzo a 0
 	 */
 	
-	int shm_id;
+
 	shm_id = shmget(SHM_KEY, sizeof(int), IPC_CREAT|0666);
 	if (shm_id < 0) {
 		perror("Unable to get shared memory");
 		exit(1);
 	}
 	
-	int* shm;
+
 	shm = (int *) shmat(shm_id, 0, 0);
-	if (shm < 0) {
+	if (*shm < 0) {
 		perror("Unable to attach memory");
 		exit(1);
 	}
@@ -298,7 +296,7 @@ int main(int argc, char **argv) {
 			
 			int* shm_ptr;
 			shm_ptr = (int *) shmat(shm_id, 0, 0);
-			if (shm_ptr < 0) {
+			if (*shm_ptr < 0) {
 				perror("Unable to attach memory");
 				exit(1);
 			}
@@ -311,7 +309,7 @@ int main(int argc, char **argv) {
 			up(SEM_server, 0);
 			
 			switch (reparto) {
-					//caso oculistica
+				/* coda oculistica*/
 				case 0:
 					printf("\tCaso oculistica");
 					costo = calcola_prezzo(conf->visita_oculistica, priorita,
@@ -338,7 +336,7 @@ int main(int argc, char **argv) {
 					printf(" PID %d", pid_cli);
 					send_socket(bill, pid_cli);
 					break;
-					//caso ortopedia
+					/*caso ortopedia*/
 				case 1:
 					printf("\tCaso ortopedia");
 					costo = calcola_prezzo(conf->visita_ortopedica, priorita,
@@ -366,7 +364,7 @@ int main(int argc, char **argv) {
 					printf(" PID %d", pid_cli);
 					send_socket(bill, pid_cli);
 					break;
-					//caso radiologia
+					/*caso radiologia*/
 				case 2:
 					printf("\tCaso radiologia");
 					

@@ -12,8 +12,8 @@
 #include <sys/sem.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
-#include <sys/un.h> //aggiunta dopo
-#include <sys/socket.h> //aggiunta dopo
+#include <sys/un.h> /*aggiunta dopo*/
+#include <sys/socket.h> /*aggiunta dopo*/
 
 #include <fnmatch.h>
 #include <limits.h>
