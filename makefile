@@ -5,7 +5,7 @@ PROG = server
 
 attuatore: funzioni.c server.c 
 	$(CC) $(CFLAGS) -c funzioni.c server.c
-	$(CC) funzioni.o sever.o -o $(PROG)
+	$(CC) funzioni.o server.o -o $(PROG)
 
 clean:
 	rm -f *.o *~
