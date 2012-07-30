@@ -1,4 +1,17 @@
+/*
+ * server.c
+ *
+ *      Author: Andrea Romanello and Amir Curic
+ *
+ * This file contain main of the server
+ * the server open 4 queue, 1 master for communicate with client
+ * and 3 queue (1 for each division) for sent messages.
+ * when receive message from client, it call fork and the son
+ * send message to division queue, send ok message to client and send
+ * bill to client from socket
+ */
 #include "myheader.h"
+#include "funzioni.h"
 
 /**
  * funzione che riceve l'handler e fa la pulizia delle risorse ipc
@@ -59,139 +72,8 @@ void up(int semid, int semnum) {
 }
 
 /**
- * leggo il file di configurazione e scrivo i dati nel puntatore
- * alla struttura
+ * Main function
  */
-void leggi_conf(configurazione *c) {
-	FILE *fp = fopen("config.conf", "r");
-	char line[265];
-	char * pline;
-	int price;
-	
-	while (!feof(fp)) {
-		fgets(line, 256, fp);
-		if (fnmatch("#*", line, 0)) {
-			
-			if (!fnmatch("VISITA_RADIOLOGICA*", line, 0)) {
-				pline = strtok(line, " ");
-				pline = strtok(NULL, " ");
-				price = atoi(pline);
-				c->visita_radiologica = price;
-			}
-			
-			if (!fnmatch("VISITA_ORTOPEDICA*", line, 0)) {
-				pline = strtok(line, " ");
-				pline = strtok(NULL, " ");
-				price = atoi(pline);
-				c->visita_ortopedica = price;
-			}
-			
-			if (!fnmatch("VISITA_OCULISTICA*", line, 0)) {
-				pline = strtok(line, " ");
-				pline = strtok(NULL, " ");
-				price = atoi(pline);
-				c->visita_oculistica = price;
-			}
-			if (!fnmatch("COSTO_PRIORITA*", line, 0)) {
-				pline = strtok(line, " ");
-				pline = strtok(NULL, " ");
-				price = atoi(pline);
-				c->costo_priorita = price;
-			}
-			if (!fnmatch("PRIORITY*", line, 0)) {
-				pline = strtok(line, " ");
-				pline = strtok(NULL, " ");
-				price = atoi(pline);
-				c->priorita_default = price;
-			}
-		}
-	}
-	
-	fclose(fp);
-}
-
-/**
- * creo socket e invio i dati al client
- * nel caso in cui la connect non vada a buon fine ritento la connessione ogni secondo
- */
-void send_socket(char * s, int p) {
-	int sd, n;
-	struct sockaddr_un srvaddr;
-	char sock[20];
-	/**
-	 * sleep temporanea per la sincronizzazione dei processi
-	 */
-	sleep(3);
-
-	sprintf(sock, "/tmp/%d.sock", p);
-	
-	printf("\n\tPronto per inviare al socket %s\n\n", sock);
-	
-	sd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sd < 0) {
-		perror("Unable to create client socket");
-		exit(1);
-	}
-	
-	/**
-	 * memset pulisce srvaddr
-	 */
-	memset(&srvaddr, 0, sizeof(srvaddr));
-	
-	srvaddr.sun_family = AF_UNIX;
-	strcpy(srvaddr.sun_path, sock);
-	
-	/*
-	 * tentativo d'inserimento del timeout sul socket
-	 if (setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, (void *) &timeout,
-	 sizeof(struct timeval)) < 0) {
-	 perror("Unable to set socket");
-	 exit(1);
-	 }
-	 */
-	
-	printf("\nCONNECT....\n");
-	
-	n = 10;
-	while (connect(sd, (struct sockaddr *) &srvaddr, sizeof(srvaddr)) < 0
-		   && n > 0) {
-		sleep(1);
-		printf("sleep ... ");
-		n--;
-	}
-	
-	if (n == 0) {
-		perror("Unable to connect to socket server");
-		exit(1);
-	}
-	
-	n = write(sd, s, sizeof(char) * 200);
-	
-	close(sd);
-	unlink(sock);
-}
-
-
-void clean(int q1, int q2, int q3, int q4, int s, int m) {
-	/**
-	 * chiudo le code di messaggi
-	 */
-	msgctl(q1, IPC_RMID, 0);
-	msgctl(q2, IPC_RMID, 0);
-	msgctl(q3, IPC_RMID, 0);
-	msgctl(q4, IPC_RMID, 0);
-	
-	/**
-	 * disalloco il semaforo
-	 */
-	semctl(s, 0, IPC_RMID);
-	
-	/**
-	 * disalloco la memoria condivisa
-	 */
-	shmctl(m, IPC_RMID, 0);
-}
-
 int main(int argc, char **argv) {
 	int MSG_Q__main_bus, MSG_Q__oculistica, MSG_Q__radiologia, MSG_Q__ortopedia,
 	SEM_server;
@@ -206,15 +88,8 @@ int main(int argc, char **argv) {
 	 */
 	signal(SIGQUIT, handler);
 
-	/**
-	 * creo le variabili
-	 */
-
-
-	richiesta = malloc(sizeof(request));
+	richiesta = calloc(1, sizeof(request));
 	
-	
-
 	/**
 	 * creo le code di messaggi
 	 * e controllo che la creazione sia andata a buon fine
@@ -246,27 +121,24 @@ int main(int argc, char **argv) {
 	 * i dati di configurazione
 	 * chiamo la funzione che legge il file di conf e riempie la struttura
 	 */
-
-	conf = malloc(sizeof(configurazione));
+	conf = calloc(1, sizeof(configurazione));
 	leggi_conf(conf);
 	
 	/**
 	 * prelevo un segmento di memoria condivisa
 	 * e lo inizializzo a 0
 	 */
-	
-
 	shm_id = shmget(SHM_KEY, sizeof(int), IPC_CREAT|0666);
 	if (shm_id < 0) {
 		perror("Unable to get shared memory");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	
 
 	shm = (int *) shmat(shm_id, 0, 0);
 	if (*shm < 0) {
 		perror("Unable to attach memory");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	
 	*shm = 0;
@@ -291,14 +163,14 @@ int main(int argc, char **argv) {
 			int priorita = richiesta->priority;
 			int pid_cli = richiesta->clientId;
 			char bill[200];
-			response *risposta = malloc(sizeof(response));
-			reservation *prenotazione = malloc(sizeof(reservation));
+			response *risposta = calloc(1, sizeof(response));
+			reservation *prenotazione = calloc(1, sizeof(reservation));
 			
 			int* shm_ptr;
 			shm_ptr = (int *) shmat(shm_id, 0, 0);
 			if (*shm_ptr < 0) {
 				perror("Unable to attach memory");
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
 			
 			printf("\tSono il figlio\n");
