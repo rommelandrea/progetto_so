@@ -5,6 +5,8 @@
  *      Author: rommel
  */
 
+#include <stdio.h>
+
 /**
  * la funzione calcola il prezzo della prestazione
  * in base al costo base, alla priorita' e al costo sulla priorita'
