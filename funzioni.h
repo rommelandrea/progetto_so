@@ -2,7 +2,7 @@
  * funzioni.h
  *
  *  Created on: Jul 30, 2012
- *      Author: rommel
+ *      Author: Andrea Romanello, Amir Curic
  */
 
 #ifndef FUNZIONI_H_

@@ -2,7 +2,7 @@
  * funzioni.c
  *
  *  Created on: Jul 23, 2012
- *      Author: Andrea Romanello and Amir Curic
+ *      Author: Andrea Romanello, Amir Curic
  *
  *  This file contain function for server
  */

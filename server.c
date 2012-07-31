@@ -1,7 +1,7 @@
 /*
  * server.c
  *
- *      Author: Andrea Romanello and Amir Curic
+ *      Author: Andrea Romanello, Amir Curic
  *
  * This file contain main of the server
  * the server open 4 queue, 1 master for communicate with client
